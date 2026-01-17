@@ -6,6 +6,8 @@ import {
   useVideoConfig,
   Img, staticFile,
 } from "remotion";
+import { Lowerthird1Text } from "./lowerthird1-text";
+
 
 export const Lowerthird: React.FC = () => {
   const videoConfig = useVideoConfig();
@@ -23,10 +25,10 @@ export const Lowerthird: React.FC = () => {
 
   const translateX = interpolate(slideInProgress, [0, 1], [-500, 0]);
 
-  // Scale animation
-  const scaleValue = interpolate(frame, [0, 5], [0.7, 1], {
-    extrapolateRight: "clamp",
-  });
+//   // Scale animation
+//   const scaleValue = interpolate(frame, [0, 20], [0.1, 1], {
+//     extrapolateRight: "clamp",
+//   });
 
   // Opacity fade in
   const opacityIn = interpolate(frame, [0, 15], [0, 1], {
@@ -62,15 +64,26 @@ export const Lowerthird: React.FC = () => {
       <div
         style={{
           opacity,
-          transform: `translateX(${translateX}px) scale(${scaleValue}) rotate(${rotation}deg)`,
+          transform: `translateX(${translateX}px)  rotate(${rotation}deg)`,
           transformOrigin: "center bottom",
+          position: "relative",
         }}
       >
         <Img
           src={staticFile("logo.svg")}
-          style={{ width: 800, height: 200 }}
+          style={{ width: 800, height: 200, display: "block" }}
         />
+        <div style={{position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-10%, -20%)",
+        margin: 0,
+      }} className=" text-4xl text-white  font-KohinoorDevnagri ">
+          <Lowerthird1Text  />
+        </div>
       </div>
     </AbsoluteFill>
   );
 };
+
+

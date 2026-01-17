@@ -1,1 +1,14 @@
 @import "tailwindcss";
+@font-face {
+  font-family: 'KohinoorDevnagri'; /* A unique name for your font */
+  src: url('../public/font/KohinoorDevanagari-Bold.ttf') format('truetype'),
+       url('../public/font/KohinoorDevanagari-Light.ttf') format('truetype'),
+       url('../public/font/KohinoorDevanagari-Medium.ttf') format('truetype'),
+       url('../public/font/KohinoorDevanagari-Semibold.ttf') format('truetype'),
+       url('../public/font/KohinoorDevanagari-Regular.ttf') format('truetype');
+
+
+
+}body {
+  font-family: 'KohinoorDevnagri', sans-serif; /* Apply the custom font */
+}

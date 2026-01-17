@@ -3,6 +3,9 @@ import { Composition } from "remotion";
 import { HelloWorld, myCompSchema } from "./HelloWorld";
 import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 import { Lowerthird } from "./Lowerthird1/Lowerthird";
+import { Lowerthird2 } from "./Lowerthird2/lowerthird2";
+
+
 
 // Each <Composition> is an entry in the sidebar!
 
@@ -52,6 +55,17 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
       />
+
+      <Composition
+        id="Lowerthird2"
+        component={Lowerthird2}
+        durationInFrames={200}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+      
+      
     </>
   );
 };
