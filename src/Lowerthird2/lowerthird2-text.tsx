@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig } from "remotion";
+import { useCurrentFrame } from "remotion";
 
 interface Lowerthird2TextProps {
   text?: string;
@@ -15,7 +15,6 @@ export const Lowerthird2Text: React.FC<Lowerthird2TextProps> = ({
   startFrame = 42,
 }) => {
   const frame = useCurrentFrame();
-  const videoConfig = useVideoConfig();
 
   // Calculate how many characters to display based on frame and typing speed
   const adjustedFrame = Math.max(0, frame - startFrame);
