@@ -6,6 +6,8 @@ import { Lowerthird } from "./Lowerthird1/Lowerthird";
 import { Lowerthird2 } from "./Lowerthird2/lowerthird2";
 
 import { Transition } from "./Transiton/Transiton";
+import { KineticTypography } from "./KineticTypography/KineticTypography";
+import { HalfScreenSuper } from "./Half-screenSuper/halfscreensuper";
 
 
 
@@ -76,6 +78,26 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
       />
+
+      <Composition
+        id="KineticTypography"
+        component={KineticTypography}
+        durationInFrames={200}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+
+
+      <Composition
+        id="HalfScreenSuper"
+        component={HalfScreenSuper}
+        durationInFrames={200}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+      
       
       
     </>
