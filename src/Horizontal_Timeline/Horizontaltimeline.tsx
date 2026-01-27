@@ -40,9 +40,17 @@ interface CircleProps {
   y: number;
   size: number;
   iconName: string;
+  labelText?: string;
 }
 
-const Circle: React.FC<CircleProps> = ({ startFrame, x, y, size, iconName }) => {
+const Circle: React.FC<CircleProps> = ({
+  startFrame,
+  x,
+  y,
+  size,
+  iconName,
+  labelText,
+}) => {
   const frame = useCurrentFrame();
 
   if (frame < startFrame) {
@@ -72,18 +80,72 @@ const Circle: React.FC<CircleProps> = ({ startFrame, x, y, size, iconName }) => 
     scale = 1;
   }
 
+  // Calculate opacity for label text fade-in
+  const labelFadeInDuration = 5;
+  const labelStartFrame = startFrame + growDuration + settleDuration;
+  let labelOpacity = 0;
+
+  if (frame >= labelStartFrame) {
+    const labelFrameSinceStart = frame - labelStartFrame;
+    labelOpacity = interpolate(
+      labelFrameSinceStart,
+      [0, labelFadeInDuration],
+      [0, 1],
+      {
+        extrapolateRight: 'clamp',
+      }
+    );
+  }
+
   return (
-    <Img
-      src={staticFile(`${iconName}.svg`)}
-      width={size}
-      height={size}
-      style={{
-        position: 'absolute',
-        left: x - size / 2,
-        top: y - size / 2,
-        transform: `scale(${scale})`,
-      }}
-    />
+    <>
+      {/* Solid fill circle background */}
+      <Img
+        src={staticFile('solidfillcircle.svg')}
+        width={size}
+        height={size}
+        style={{
+          position: 'absolute',
+          left: x - size / 2,
+          top: y - size / 2,
+          transform: `scale(${scale})`,
+        }}
+      />
+
+      {/* Icon centered in the circle */}
+      <Img
+        src={staticFile(`${iconName}.svg`)}
+        width={size * 0.6} // Icon takes 60% of circle size
+        height={size * 0.6}
+        style={{
+          position: 'absolute',
+          left: x - (size * 0.6) / 2,
+          top: y - (size * 0.6) / 2,
+          transform: `scale(${scale})`,
+          objectFit: 'contain',
+        }}
+      />
+
+      {/* Label text below the circle */}
+      {labelText && (
+        <div
+          style={{
+            position: 'absolute',
+            left: x - 80,
+            top: y + size / 2 + 30,
+            width: 160,
+            textAlign: 'center',
+            fontSize: '20px',
+            fontWeight: 'bold',
+            color: 'white',
+            opacity: labelOpacity,
+            fontFamily: 'Arial, sans-serif',
+          }}
+        >
+          {labelText}
+        </div>
+      )}
+    </>
   );
 };
 
@@ -98,7 +160,7 @@ export const HorizontalTimelineFromSchema: React.FC<TimelineComponentProps> = ({
   const count = visualData.length;
 
   const padding = 0;
-  const pathY = height / 2;
+  const pathY = height / 2 + 80; // Shift down to make room for title
   const pathStart = padding;
   const pathEnd = width - padding;
   const pathWidth = pathEnd - pathStart;
@@ -130,7 +192,14 @@ export const HorizontalTimelineFromSchema: React.FC<TimelineComponentProps> = ({
     // Evenly distribute circles with space at start and end
     const xPercent = ((i + 1) / (count + 1)) * 100;
     const x = pathStart + (xPercent / 100) * pathWidth;
-    return { x, y: pathY, size: item.size, iconName: item.icon, id: item.id };
+    return {
+      x,
+      y: pathY,
+      size: item.size,
+      iconName: item.icon,
+      id: item.id,
+      labelText: item.labelText,
+    };
   });
 
   // Calculate when each circle should start animating
@@ -173,8 +242,45 @@ export const HorizontalTimelineFromSchema: React.FC<TimelineComponentProps> = ({
 
   const dashArrayString = dashArray.join(' ');
 
+  // Title animation
+  const titleAnimationDuration = 30;
+  let titleOpacity = 0;
+  let titleScale = 0;
+
+  if (frame < titleAnimationDuration) {
+    titleOpacity = interpolate(frame, [0, titleAnimationDuration * 0.7], [0, 1], {
+      extrapolateRight: 'clamp',
+    });
+    titleScale = interpolate(frame, [0, titleAnimationDuration], [0.8, 1], {
+      extrapolateRight: 'clamp',
+    });
+  } else {
+    titleOpacity = 1;
+    titleScale = 1;
+  }
+
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
+      {/* Title at the top */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 60,
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          fontSize: '48px',
+          fontWeight: 'bold',
+          color: 'white',
+          opacity: titleOpacity,
+          transform: `scale(${titleScale})`,
+          fontFamily: 'Arial, sans-serif',
+        }}
+      >
+        {metadata.title}
+      </div>
+
+      {/* SVG path for dotted line */}
       <svg width={width} height={height}>
         <path
           d={path}
@@ -184,6 +290,8 @@ export const HorizontalTimelineFromSchema: React.FC<TimelineComponentProps> = ({
           strokeDasharray={dashArrayString}
         />
       </svg>
+
+      {/* Circles with icons and labels */}
       {circlePositions.map((pos, i) => (
         <Circle
           key={pos.id}
@@ -192,6 +300,7 @@ export const HorizontalTimelineFromSchema: React.FC<TimelineComponentProps> = ({
           y={pos.y}
           size={pos.size}
           iconName={pos.iconName}
+          labelText={pos.labelText}
         />
       ))}
     </AbsoluteFill>
