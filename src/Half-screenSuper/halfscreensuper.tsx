@@ -6,57 +6,87 @@ import {
   useVideoConfig,
   Img,
   staticFile,
-  Sequence,
 } from "remotion";
-
 import React, { useEffect, useRef, useState } from "react";
 
-const DottedCircleAnimation: React.FC = () => {
+type Circle = {
+  start: number;
+  end: number;
+  marginLeft: number;
+  marginTop: number;
+};
+
+const DottedCircleAnimation: React.FC<{ circles: Circle[] }> = ({ circles }) => {
   const frame = useCurrentFrame();
-  const pathRef = useRef<SVGPathElement>(null);
+  const maskPathRef = useRef<SVGPathElement>(null);
   const [pathLength, setPathLength] = useState(0);
 
   useEffect(() => {
-    if (pathRef.current) {
-      setPathLength(pathRef.current.getTotalLength());
+    if (maskPathRef.current) {
+      const length = maskPathRef.current.getTotalLength();
+      setPathLength(length);
     }
   }, []);
 
-  let animatedFrame = frame;
+  const animationStartFrame = 30;
+  const baseAnimationDuration = 90;
   
-  // Pause from frame 46 to 55 (10 frames)
-  if (frame >= 46 && frame <= 55) {
-    animatedFrame = 45;
-  } else if (frame > 55) {
-    animatedFrame = frame - 10;
-  }
-  
-  // Pause from frame 65 to 75 (10 frames) - adjust the offset
-  if (frame >= 65 && frame <= 75) {
-    animatedFrame = 55;
-  } else if (frame > 75) {
-    animatedFrame = frame - 20;
-  }
-  
-  // Pause from frame 85 to 95 (10 frames) - keep consistent offset
-  if (frame >= 85 && frame <= 95) {
-    animatedFrame = 65;  // Changed from 75 to 65
-  } else if (frame > 95) {
-    animatedFrame = frame - 30;
+  const totalPauseDuration = circles.reduce(
+    (acc, circle) => acc + (circle.end - circle.start),
+    0
+  );
+
+  const animationEndFrame = animationStartFrame + baseAnimationDuration + totalPauseDuration;
+
+  // FIX: Completely rewritten pause logic
+  // Check if current frame is within ANY pause period
+  let isPaused = false;
+  let accumulatedPauseBefore = 0;
+
+  for (const circle of circles) {
+    if (frame >= circle.start && frame < circle.end) {
+      // Currently in a pause - keep progress frozen at the start of pause
+      isPaused = true;
+      break;
+    }
+    
+    if (frame >= circle.end) {
+      // This pause has ended, add to accumulated offset
+      accumulatedPauseBefore += (circle.end - circle.start);
+    }
   }
 
-  // Animation from frame 30 to 120, then stay at 1
-  let progress = interpolate(animatedFrame, [30, 120], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  // Calculate the "real" animation frame without pauses
+  let animatedFrame: number;
   
-  // Keep progress at 1 after frame 120
-  if (frame > 120) {
+  if (isPaused) {
+    // During pause: freeze at the frame where pause started
+    const pauseCircle = circles.find(c => frame >= c.start && frame < c.end);
+    animatedFrame = pauseCircle!.start - accumulatedPauseBefore;
+  } else {
+    // Not paused: subtract all accumulated pause durations
+    animatedFrame = frame - accumulatedPauseBefore;
+  }
+
+  // Calculate progress for the stroke animation
+  let progress = interpolate(
+    animatedFrame,
+    [animationStartFrame, animationStartFrame + baseAnimationDuration],
+    [0, 1],
+    {
+      extrapolateLeft: 'clamp',
+      extrapolateRight: 'clamp',
+    }
+  );
+
+  if (frame > animationEndFrame) {
     progress = 1;
   }
 
-  const maskOffset = pathLength * (1 - progress);
+  // Calculate mask offset - reveals as progress increases
+  const maskOffset = pathLength > 0 ? pathLength * (1 - progress) : 0;
+  
+  // Fade in opacity at the start
   const opacity = interpolate(frame, [30, 50], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
@@ -82,14 +112,15 @@ const DottedCircleAnimation: React.FC = () => {
         <mask id="circleMask">
           <rect width="1005" height="1012" fill="black" />
           <path
-            ref={pathRef}
+            ref={maskPathRef}
             d="M680.857 34.7576C938.531 132.536 1067.41 422.64 968.716 682.725C870.023 942.81 581.132 1074.39 323.458 976.607C65.7853 878.829 -63.0936 588.724 35.5994 328.64C134.292 68.5551 423.184 -63.0204 680.857 34.7576Z"
             stroke="white"
             strokeWidth="8"
             strokeMiterlimit="10"
-            strokeDasharray={`${pathLength} ${pathLength}`}
+            strokeDasharray={pathLength > 0 ? pathLength : "0"}
             strokeDashoffset={maskOffset}
             strokeLinecap="round"
+            fill="none"
           />
         </mask>
         <clipPath id="clip0_42_14">
@@ -101,21 +132,31 @@ const DottedCircleAnimation: React.FC = () => {
         <path
           d="M680.857 34.7576C938.531 132.536 1067.41 422.64 968.716 682.725C870.023 942.81 581.132 1074.39 323.458 976.607C65.7853 878.829 -63.0936 588.724 35.5994 328.64C134.292 68.5551 423.184 -63.0204 680.857 34.7576Z"
           stroke="white"
-          strokeWidth="8"
-          strokeMiterlimit="10"
-          strokeDasharray="25 20"
-          strokeLinecap="round"
+          strokeWidth="14"
+          strokeMiterlimit="0"
+          strokeDasharray="25 22"
+          strokeLinecap="square"
+          fill="none"
         />
       </g>
     </svg>
   );
 };
 
-export const HalfScreenSuper: React.FC = () => {
+export const HalfScreenSuper: React.FC<{ count?: number }> = ({ count = 5 }) => {
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
 
-  // Animate the entrance of the graphic
+  const allCircles: Circle[] = [
+    { start: 46, end: 55, marginLeft: -1420, marginTop: -600 },
+    { start: 65, end: 75, marginLeft: -1150, marginTop: -50 },
+    { start: 85, end: 95, marginLeft: -1325, marginTop: 550 },
+    { start: 105, end: 115, marginLeft: -1050, marginTop: 850 },
+    { start: 125, end: 135, marginLeft: -1400, marginTop: 950 },
+  ];
+
+  const circles = allCircles.slice(0, count);
+
   const entranceProgress = spring({
     frame,
     fps,
@@ -125,28 +166,7 @@ export const HalfScreenSuper: React.FC = () => {
     durationInFrames: 45,
   });
 
-  // Slide in from the left
   const translateX = interpolate(entranceProgress, [0, 1], [-width, 0]);
-
-  // First circle pop: frame 46-55
-  const popScale1 = interpolate(frame, [46, 50, 55], [0, 1.5, 1.5], { 
-    extrapolateRight: "clamp" 
-  });
-
-  // Second circle pop: frame 65-75
-  const popScale2 = interpolate(frame, [65, 69, 75], [0, 1.5, 1.5], { 
-    extrapolateRight: "clamp" 
-  });
-
-  // Third circle pop: frame 85-95
-  const popScale3 = interpolate(frame, [85, 89, 95], [0, 1.5, 1.5], { 
-    extrapolateRight: "clamp" 
-  });
-
-  // Opacity for circles (appears when they're supposed to pop)
-  const circleOpacity1 = frame >= 46 ? 1 : 0;
-  const circleOpacity2 = frame >= 65 ? 1 : 0;
-  const circleOpacity3 = frame >= 85 ? 1 : 0;
 
   return (
     <AbsoluteFill>
@@ -170,71 +190,41 @@ export const HalfScreenSuper: React.FC = () => {
           transformOrigin: "center center",
         }}
       >
-        <DottedCircleAnimation />
+        <DottedCircleAnimation circles={circles} />
       </div>
 
-      {/* First solid fill circle at frame 46 onwards */}
-      {frame >= 46 && (
-        <AbsoluteFill
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            opacity: circleOpacity1,
-          }}
-        >
-          <Img
-            src={staticFile('solidfillcircle.svg')}
-            style={{
-              transform: `scale(${frame >= 46 && frame <= 55 ? popScale1 : 1.5})`,
-              marginLeft: -1420,
-              marginTop: -600,
-            }}
-          />
-        </AbsoluteFill>
-      )}
+      {circles.map((circle, index) => {
+        const popScale = interpolate(frame, [circle.start, circle.start + 4, circle.end], [0, 1.5, 1.5], { 
+          extrapolateRight: "clamp" 
+        });
 
-      {/* Second solid fill circle at frame 65 onwards */}
-      {frame >= 65 && (
-        <AbsoluteFill
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            opacity: circleOpacity2,
-          }}
-        >
-          <Img
-            src={staticFile('solidfillcircle.svg')}
-            style={{
-              transform: `scale(${frame >= 65 && frame <= 75 ? popScale2 : 1.5})`,
-              marginLeft: -1150,
-              marginTop: -50,
-            }}
-          />
-        </AbsoluteFill>
-      )}
+        const circleOpacity = frame >= circle.start ? 1 : 0;
+        
+        const scale = (frame >= circle.start && frame <= circle.end) ? popScale : 1.5;
 
-      {/* Third solid fill circle at frame 85 onwards */}
-      {frame >= 85 && (
-        <AbsoluteFill
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            opacity: circleOpacity3,
-          }}
-        >
-          <Img
-            src={staticFile('solidfillcircle.svg')}
-            style={{
-              transform: `scale(${frame >= 85 && frame <= 95 ? popScale3 : 1.5})`,
-              marginLeft: -1325,
-              marginTop: 550,
-            }}
-          />
-        </AbsoluteFill>
-      )}
+        return (
+          frame >= circle.start && (
+            <AbsoluteFill
+              key={index}
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: circleOpacity,
+              }}
+            >
+              <Img
+                src={staticFile('solidfillcircle.svg')}
+                style={{
+                  transform: `scale(${scale})`,
+                  marginLeft: circle.marginLeft,
+                  marginTop: circle.marginTop,
+                }}
+              />
+            </AbsoluteFill>
+          )
+        );
+      })}
     </AbsoluteFill>
   );
 };

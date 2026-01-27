@@ -1,15 +1,17 @@
 import "./index.css";
 import { Composition } from "remotion";
+import { z } from "zod";
 import { HelloWorld, myCompSchema } from "./HelloWorld";
 import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 import { Lowerthird } from "./Lowerthird1/Lowerthird";
 import { Lowerthird2 } from "./Lowerthird2/lowerthird2";
-
 import { Transition } from "./Transiton/Transiton";
 import { KineticTypography } from "./KineticTypography/KineticTypography";
 import { HalfScreenSuper } from "./Half-screenSuper/halfscreensuper";
-
-
+import { 
+  HorizontalTimelineFromSchema as HorizontalTimeline, 
+  timelineSchemaFromData 
+} from "./Horizontal_Timeline/Horizontaltimeline";
 
 // Each <Composition> is an entry in the sidebar!
 
@@ -17,16 +19,12 @@ export const RemotionRoot: React.FC = () => {
   return (
     <>
       <Composition
-        // You can take the "id" to render a video:
-        // npx remotion render HelloWorld
         id="HelloWorld"
         component={HelloWorld}
         durationInFrames={150}
         fps={30}
         width={1920}
         height={1080}
-        // You can override these props for each render:
-        // https://www.remotion.dev/docs/parametrized-rendering
         schema={myCompSchema}
         defaultProps={{
           titleText: "Welcome to Remotion",
@@ -36,7 +34,6 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
 
-      {/* Mount any React component to make it show up in the sidebar and work on it individually! */}
       <Composition
         id="OnlyLogo"
         component={Logo}
@@ -69,7 +66,6 @@ export const RemotionRoot: React.FC = () => {
         height={1080}
       />
 
-      
       <Composition
         id="transition"
         component={Transition}
@@ -88,7 +84,6 @@ export const RemotionRoot: React.FC = () => {
         height={1080}
       />
 
-
       <Composition
         id="HalfScreenSuper"
         component={HalfScreenSuper}
@@ -96,10 +91,62 @@ export const RemotionRoot: React.FC = () => {
         fps={30}
         width={1920}
         height={1080}
+        schema={z.object({
+          count: z.number().min(1).max(5).step(1),
+        })}
+        defaultProps={{
+          count: 5,
+        }}
       />
-      
-      
-      
+
+      <Composition
+        id="HorizontalTimeline"
+        component={HorizontalTimeline}
+        durationInFrames={300}
+        fps={30}
+        width={1920}
+        height={1080}
+        schema={timelineSchemaFromData}
+        defaultProps={{
+          data: {
+            metadata: {
+              title: "Key Learnings",
+            },
+            visualData: [
+              {
+                id: 1,
+                icon: "solidfillcircle",
+                size: 80,
+                labelText: "Step 1",
+              },
+              {
+                id: 2,
+                icon: "solidfillcircle",
+                size: 120,
+                labelText: "Step 2",
+              },
+              {
+                id: 3,
+                icon: "solidfillcircle",
+                size: 120,
+                labelText: "Step 3",
+              },
+              {
+                id: 4,
+                icon: "solidfillcircle",
+                size: 80,
+                labelText: "Step 4",
+              },
+              {
+                id: 5,
+                icon: "solidfillcircle",
+                size: 80,
+                labelText: "Step 5",
+              },
+            ],
+          },
+        }}
+      />
     </>
   );
 };

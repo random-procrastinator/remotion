@@ -1,4 +1,4 @@
-import { useCurrentFrame, useVideoConfig, interpolate, Easing } from 'remotion';
+import { useCurrentFrame, interpolate, Easing } from 'remotion';
 import React from 'react';
 
 const text = "This is Kinetic Typography";
@@ -7,7 +7,6 @@ const letters = text.split('');
 
 export const KineticTypography: React.FC = () => {
 	const frame = useCurrentFrame();
-	const { fps } = useVideoConfig();
 
 	return (
 		<div
