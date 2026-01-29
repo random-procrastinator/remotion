@@ -5,6 +5,7 @@ import {
   useVideoConfig,
   Img,
   staticFile,
+  spring,
 } from "remotion";
 import { z } from "zod";
 
@@ -91,6 +92,11 @@ const animationTimingSchema = z.object({
   circleSettleDuration: z.number().min(3).max(20).default(5),
   labelFadeInDuration: z.number().min(3).max(20).default(5),
   pauseDuration: z.number().min(5).max(30).default(15),
+  // NEW: Animation variant/easing type
+  easingType: z
+    .enum(["linear", "smooth", "bouncy", "snappy", "spring"])
+    .default("linear")
+    .describe("Animation easing style"),
 });
 
 // Main schema for the timeline component
@@ -137,35 +143,29 @@ export const horizontalTimelineSchema = z.object({
     circleSettleDuration: 5,
     labelFadeInDuration: 5,
     pauseDuration: 15,
+    easingType: "linear",
   }),
 });
 
 // Export the type for external use
 export type HorizontalTimelineProps = z.infer<typeof horizontalTimelineSchema>;
 
-// Legacy schema for backwards compatibility
-const visualDataItemSchema = z.object({
-  id: z.number(),
-  icon: z.string(),
-  size: z.number().min(30).max(200),
-  labelText: z.string().optional(),
-  iconLibrary: z.string().optional(),
-});
-
-const metadataSchema = z.object({
-  title: z.string(),
-});
-
-const timelineDataSchema = z.object({
-  metadata: metadataSchema,
-  visualData: z.array(visualDataItemSchema),
-});
-
-export const timelineSchemaFromData = z.object({
-  data: timelineDataSchema,
-});
-
-type LegacyTimelineProps = z.infer<typeof timelineSchemaFromData>;
+// Helper function to get spring config based on easing type
+const getSpringConfig = (easingType: string) => {
+  switch (easingType) {
+    case "smooth":
+      return { damping: 200 }; // Smooth, no bounce
+    case "bouncy":
+      return { damping: 8 }; // Bouncy entrance
+    case "snappy":
+      return { damping: 20, stiffness: 200 }; // Snappy, minimal bounce
+    case "spring":
+      return { damping: 10, stiffness: 100 }; // Default spring with bounce
+    case "linear":
+    default:
+      return null; // Use interpolate instead
+  }
+};
 
 // Circle component props with styling options
 interface CircleProps {
@@ -179,6 +179,7 @@ interface CircleProps {
   iconScale: number;
   labelStyle: z.infer<typeof labelStyleSchema>;
   animationTiming: z.infer<typeof animationTimingSchema>;
+  fps: number;
 }
 
 const Circle: React.FC<CircleProps> = ({
@@ -191,6 +192,7 @@ const Circle: React.FC<CircleProps> = ({
   iconScale,
   labelStyle,
   animationTiming,
+  fps,
 }) => {
   const frame = useCurrentFrame();
 
@@ -199,26 +201,43 @@ const Circle: React.FC<CircleProps> = ({
   }
 
   const frameSinceStart = frame - startFrame;
-  const { circleGrowDuration, circleSettleDuration, labelFadeInDuration } =
-    animationTiming;
+  const {
+    circleGrowDuration,
+    circleSettleDuration,
+    labelFadeInDuration,
+    easingType,
+  } = animationTiming;
 
+  const springConfig = getSpringConfig(easingType);
   let scale = 0;
 
-  if (frameSinceStart < circleGrowDuration) {
-    scale = interpolate(frameSinceStart, [0, circleGrowDuration], [0, 1.2], {
-      extrapolateRight: "clamp",
+  if (springConfig) {
+    // Use spring animation for non-linear easing types
+    const springValue = spring({
+      frame: frameSinceStart,
+      fps,
+      config: springConfig,
+      durationInFrames: circleGrowDuration + circleSettleDuration,
     });
-  } else if (frameSinceStart < circleGrowDuration + circleSettleDuration) {
-    scale = interpolate(
-      frameSinceStart,
-      [circleGrowDuration, circleGrowDuration + circleSettleDuration],
-      [1.2, 1],
-      {
-        extrapolateRight: "clamp",
-      },
-    );
+    scale = springValue;
   } else {
-    scale = 1;
+    // Use linear interpolate (original behavior)
+    if (frameSinceStart < circleGrowDuration) {
+      scale = interpolate(frameSinceStart, [0, circleGrowDuration], [0, 1.2], {
+        extrapolateRight: "clamp",
+      });
+    } else if (frameSinceStart < circleGrowDuration + circleSettleDuration) {
+      scale = interpolate(
+        frameSinceStart,
+        [circleGrowDuration, circleGrowDuration + circleSettleDuration],
+        [1.2, 1],
+        {
+          extrapolateRight: "clamp",
+        },
+      );
+    } else {
+      scale = 1;
+    }
   }
 
   // Calculate opacity for label text fade-in
@@ -292,7 +311,6 @@ const Circle: React.FC<CircleProps> = ({
   );
 };
 
-// NEW: Main reusable component with full schema support
 export const HorizontalTimeline: React.FC<HorizontalTimelineProps> = ({
   items,
   title,
@@ -303,9 +321,8 @@ export const HorizontalTimeline: React.FC<HorizontalTimelineProps> = ({
   animationTiming,
 }) => {
   const frame = useCurrentFrame();
-  const { width, height, durationInFrames } = useVideoConfig();
+  const { width, height, durationInFrames, fps } = useVideoConfig();
 
-  // Apply defaults for optional nested objects
   const titleConfig = title ?? {
     text: "Timeline",
     fontSize: 48,
@@ -343,6 +360,7 @@ export const HorizontalTimeline: React.FC<HorizontalTimelineProps> = ({
     circleSettleDuration: 5,
     labelFadeInDuration: 5,
     pauseDuration: 15,
+    easingType: "linear" as const,
   };
 
   const count = items.length;
@@ -388,21 +406,22 @@ export const HorizontalTimeline: React.FC<HorizontalTimelineProps> = ({
     };
   });
 
-  // Calculate when each circle should start animating
-  const circleStartFrames = circlePositions.map((pos) => {
+  // Calculate when each circle's animation should start
+  const circleStartFrames = circlePositions.map((pos, index) => {
     const drawProgress = (pos.x - pathStart) / pathWidth;
-    const startTime = drawProgress * drawDuration;
-    return startTime;
+    const drawTime = drawProgress * drawDuration;
+    const previousPauses = index * timingConfig.pauseDuration;
+    return drawTime + previousPauses;
   });
 
-  // Calculate time spent in pauses
+  // Calculate time spent in pauses up to current frame
   let timeSpentInPauses = 0;
   for (let i = 0; i < count; i++) {
-    const startFrame = circleStartFrames[i];
-    if (frame >= startFrame + timingConfig.pauseDuration) {
+    const circleReachFrame = circleStartFrames[i];
+    if (frame >= circleReachFrame + timingConfig.pauseDuration) {
       timeSpentInPauses += timingConfig.pauseDuration;
-    } else if (frame >= startFrame) {
-      timeSpentInPauses += frame - startFrame;
+    } else if (frame >= circleReachFrame) {
+      timeSpentInPauses += frame - circleReachFrame;
       break;
     }
   }
@@ -491,64 +510,9 @@ export const HorizontalTimeline: React.FC<HorizontalTimelineProps> = ({
           iconScale={circleConfig.iconScale}
           labelStyle={labelConfig}
           animationTiming={timingConfig}
+          fps={fps}
         />
       ))}
     </AbsoluteFill>
-  );
-};
-
-// LEGACY: Backwards-compatible component (wraps new component)
-export const HorizontalTimelineFromSchema: React.FC<LegacyTimelineProps> = ({
-  data,
-}) => {
-  const { metadata, visualData } = data;
-
-  // Convert legacy format to new format
-  const items = visualData.map((item) => ({
-    id: item.id,
-    icon: item.icon,
-    size: item.size,
-    labelText: item.labelText,
-  }));
-
-  return (
-    <HorizontalTimeline
-      items={items}
-      title={{
-        text: metadata.title,
-        fontSize: 48,
-        color: "#FFFFFF",
-        fontFamily: "Arial, sans-serif",
-        fontWeight: "bold",
-        topOffset: 60,
-      }}
-      backgroundColor="#000000"
-      lineStyle={{
-        color: "#FFA500",
-        strokeWidth: 10,
-        dotSize: 10,
-        gapSize: 15,
-        yOffset: 80,
-      }}
-      circleStyle={{
-        backgroundColor: "#FFFFFF",
-        iconScale: 0.6,
-      }}
-      labelStyle={{
-        fontSize: 20,
-        color: "#FFFFFF",
-        fontFamily: "Arial, sans-serif",
-        fontWeight: "bold",
-        offsetY: 30,
-        width: 160,
-      }}
-      animationTiming={{
-        titleDuration: 30,
-        circleGrowDuration: 10,
-        circleSettleDuration: 5,
-        labelFadeInDuration: 5,
-        pauseDuration: 15,
-      }}
-    />
   );
 };
