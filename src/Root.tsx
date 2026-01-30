@@ -83,21 +83,29 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="HalfScreenSuper"
         component={HalfScreenSuper}
-        durationInFrames={200}
+        durationInFrames={500}
         fps={30}
         width={1920}
         height={1080}
         schema={halfScreenSuperSchema}
         defaultProps={{
-          count: 8,
-          circleStyle: { size: 120, icon: "solidfillcircle" },
-          animationTiming: {
-            entranceDuration: 45,
-            circleGrowDuration: 10,
-            circleSettleDuration: 5,
-            pauseDuration: 10,
-            easingType: "linear" as const,
-          },
+          checkpoints: [
+            { id: 1, pathProgress: 0.15, text: "Init Project", icon: "check" },
+            {
+              id: 2,
+              pathProgress: 0.35,
+              text: "Ingest Data",
+              icon: "database",
+            },
+            { id: 3, pathProgress: 0.55, text: "Process AI", icon: "cpu" },
+            {
+              id: 4,
+              pathProgress: 0.75,
+              text: "Quality Check",
+              icon: "shield",
+            },
+            { id: 5, pathProgress: 0.9, text: "Deploy", icon: "rocket" },
+          ],
         }}
       />
       <Composition
